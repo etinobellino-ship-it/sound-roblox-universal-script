@@ -1,0 +1,419 @@
+--[[
+    🇮🇹 IL NEGRO DI FIDUCIA SOUND v2.1 🇮🇹
+    Solo 2 canzoni - Audio 3D Funzionante
+    Dam Dam Di Di Di Di + Renai Circulation
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local SoundService = game:GetService("SoundService")
+
+local LocalPlayer = Players.LocalPlayer
+
+--// SOLO 2 CANZONI (come richiesto)
+local Canzoni = {
+    {
+        Nome = "🎵 Dam Dam Di Di Di Di",
+        Artista = "Meme",
+        ID = "82746224492420", -- ID fornito
+        Durata = "0:30",
+        Colore = Color3.fromRGB(255, 50, 150)
+    },
+    {
+        Nome = "🎌 Renai Circulation",
+        Artista = "Anime OP",
+        ID = "8494188412", -- ID fornito
+        Durata = "4:12",
+        Colore = Color3.fromRGB(255, 100, 200)
+    }
+}
+
+--// STATO
+local Stato = {
+    InRiproduzione = false,
+    CanzoneCorrente = nil,
+    Volume = 1.0,
+    Range = 100,
+    Sound3D = nil,
+    SpeakerPart = nil
+}
+
+--// CREA SPEAKER 3D (FUNZIONANTE)
+local function CreaSpeaker3D()
+    -- Rimuovi vecchio
+    if Stato.SpeakerPart then
+        Stato.SpeakerPart:Destroy()
+    end
+    
+    -- Crea part fisica
+    local speaker = Instance.new("Part")
+    speaker.Name = "Radio3D_Speaker"
+    speaker.Size = Vector3.new(2, 2, 2)
+    speaker.Shape = Enum.PartType.Ball
+    speaker.Material = Enum.Material.Neon
+    speaker.Color = Color3.fromRGB(255, 215, 0)
+    speaker.CanCollide = false
+    speaker.Anchored = true
+    speaker.Transparency = 0.5
+    speaker.Parent = Workspace
+    
+    -- Posiziona sopra player
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        speaker.Position = char.HumanoidRootPart.Position + Vector3.new(0, 6, 0)
+    end
+    
+    -- Crea suono 3D IMPORTANTE
+    local sound = Instance.new("Sound")
+    sound.Name = "Audio3D"
+    sound.Parent = speaker -- Parentato alla Part (tutti sentono!)
+    sound.Volume = Stato.Volume
+    sound.RollOffMode = Enum.RollOffMode.Linear
+    sound.RollOffMaxDistance = Stato.Range
+    sound.RollOffMinDistance = 5
+    sound.Looped = false
+    
+    -- Effetto visivo range
+    local rangeVisual = Instance.new("SelectionSphere")
+    rangeVisual.Name = "RangeVisual"
+    rangeVisual.Color3 = Color3.fromRGB(255, 215, 0)
+    rangeVisual.Transparency = 0.9
+    rangeVisual.SurfaceTransparency = 0.9
+    rangeVisual.Parent = speaker
+    
+    -- Segui player
+    task.spawn(function()
+        while Stato.SpeakerPart and Stato.SpeakerPart.Parent do
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local targetPos = char.HumanoidRootPart.Position + Vector3.new(0, 6, 0)
+                Stato.SpeakerPart.Position = targetPos
+            end
+            task.wait(0.03)
+        end
+    end)
+    
+    Stato.SpeakerPart = speaker
+    Stato.Sound3D = sound
+    
+    return sound
+end
+
+--// UI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NegroSound_Radio3D"
+ScreenGui.Parent = CoreGui
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 450, 0, 550)
+Main.Position = UDim2.new(0.5, -225, 0.5, -275)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 25)
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(255, 215, 0)
+Stroke.Thickness = 4
+Stroke.Parent = Main
+
+-- Titolo
+local Titolo = Instance.new("TextLabel")
+Titolo.Size = UDim2.new(1, 0, 0, 70)
+Titolo.Position = UDim2.new(0, 0, 0, 15)
+Titolo.BackgroundTransparency = 1
+Titolo.Text = "🇮🇹 IL NEGRO DI FIDUCIA 🇮🇹"
+Titolo.TextColor3 = Color3.fromRGB(255, 215, 0)
+Titolo.TextSize = 28
+Titolo.Font = Enum.Font.GothamBlack
+Titolo.Parent = Main
+
+local Sub = Instance.new("TextLabel")
+Sub.Size = UDim2.new(1, 0, 0, 30)
+Sub.Position = UDim2.new(0, 0, 0, 75)
+Sub.BackgroundTransparency = 1
+Sub.Text = "🔊 RADIO 3D - TUTTI SENTONO! 🔊"
+Sub.TextColor3 = Color3.fromRGB(100, 255, 100)
+Sub.TextSize = 16
+Sub.Font = Enum.Font.GothamBold
+Sub.Parent = Main
+
+-- Info canzone
+local InfoFrame = Instance.new("Frame")
+InfoFrame.Size = UDim2.new(0.9, 0, 0, 100)
+InfoFrame.Position = UDim2.new(0.05, 0, 0, 120)
+InfoFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+InfoFrame.Parent = Main
+
+Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 15)
+
+local NomeCanzone = Instance.new("TextLabel")
+NomeCanzone.Size = UDim2.new(1, -20, 0, 40)
+NomeCanzone.Position = UDim2.new(0, 10, 0, 15)
+NomeCanzone.BackgroundTransparency = 1
+NomeCanzone.Text = "⏸️ Seleziona una canzone"
+NomeCanzone.TextColor3 = Color3.fromRGB(255, 255, 255)
+NomeCanzone.TextSize = 22
+NomeCanzone.Font = Enum.Font.GothamBold
+NomeCanzone.Parent = InfoFrame
+
+local ArtistaLabel = Instance.new("TextLabel")
+ArtistaLabel.Size = UDim2.new(1, -20, 0, 25)
+ArtistaLabel.Position = UDim2.new(0, 10, 0, 55)
+ArtistaLabel.BackgroundTransparency = 1
+ArtistaLabel.Text = "Range: " .. Stato.Range .. " studi"
+ArtistaLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+ArtistaLabel.TextSize = 14
+ArtistaLabel.Parent = InfoFrame
+
+-- Lista Canzoni (solo 2)
+local ListaFrame = Instance.new("Frame")
+ListaFrame.Size = UDim2.new(0.9, 0, 0, 180)
+ListaFrame.Position = UDim2.new(0.05, 0, 0, 240)
+ListaFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+ListaFrame.Parent = Main
+
+Instance.new("UICorner", ListaFrame).CornerRadius = UDim.new(0, 15)
+
+local ListaTitolo = Instance.new("TextLabel")
+ListaTitolo.Size = UDim2.new(1, 0, 0, 35)
+ListaTitolo.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+ListaTitolo.Text = "🎵 PLAYLIST (2 canzoni)"
+ListaTitolo.TextColor3 = Color3.fromRGB(255, 215, 0)
+ListaTitolo.TextSize = 16
+ListaTitolo.Font = Enum.Font.GothamBold
+ListaTitolo.Parent = ListaFrame
+
+Instance.new("UICorner", ListaTitolo).CornerRadius = UDim.new(0, 10)
+
+-- Crea i 2 bottoni canzoni
+for i, canzone in ipairs(Canzoni) do
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0.95, 0, 0, 60)
+    Btn.Position = UDim2.new(0.025, 0, 0, 45 + (i-1) * 65)
+    Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    Btn.Text = ""
+    Btn.Parent = ListaFrame
+    
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 12)
+    
+    -- Colore indicatore
+    local Ind = Instance.new("Frame")
+    Ind.Size = UDim2.new(0, 6, 1, 0)
+    Ind.BackgroundColor3 = canzone.Colore
+    Ind.Parent = Btn
+    
+    Instance.new("UICorner", Ind).CornerRadius = UDim.new(0, 12)
+    
+    -- Testo
+    local Nome = Instance.new("TextLabel")
+    Nome.Size = UDim2.new(1, -20, 0, 30)
+    Nome.Position = UDim2.new(0, 15, 0, 5)
+    Nome.BackgroundTransparency = 1
+    Nome.Text = canzone.Nome
+    Nome.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Nome.TextSize = 18
+    Nome.Font = Enum.Font.GothamBold
+    Nome.TextXAlignment = Enum.TextXAlignment.Left
+    Nome.Parent = Btn
+    
+    local Art = Instance.new("TextLabel")
+    Art.Size = UDim2.new(1, -20, 0, 20)
+    Art.Position = UDim2.new(0, 15, 0, 35)
+    Art.BackgroundTransparency = 1
+    Art.Text = canzone.Artista .. " • " .. canzone.Durata
+    Art.TextColor3 = Color3.fromRGB(180, 180, 180)
+    Art.TextSize = 13
+    Art.Font = Enum.Font.Gotham
+    Art.TextXAlignment = Enum.TextXAlignment.Left
+    Art.Parent = Btn
+    
+    -- Hover
+    Btn.MouseEnter:Connect(function()
+        TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 80)}):Play()
+    end)
+    
+    Btn.MouseLeave:Connect(function()
+        TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 40, 50)}):Play()
+    end)
+    
+    -- CLICK - RIPRODUCI
+    Btn.MouseButton1Click:Connect(function()
+        -- Crea speaker 3D
+        local sound = CreaSpeaker3D()
+        sound.SoundId = "rbxassetid://" .. canzone.ID
+        
+        -- Imposta
+        Stato.CanzoneCorrente = canzone
+        Stato.InRiproduzione = true
+        
+        -- Aggiorna UI
+        NomeCanzone.Text = "▶️ " .. canzone.Nome
+        ArtistaLabel.Text = "🔊 Range: " .. Stato.Range .. " studi | Tutti sentono!"
+        
+        -- RIPRODUCI FULL AUDIO!
+        sound:Play()
+        
+        -- Notifica
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "🔊 RADIO 3D ATTIVA",
+            Text = "Stai suonando:\n" .. canzone.Nome .. "\n\nTutti nel range di " .. Stato.Range .. " studi sentono!",
+            Duration = 5
+        })
+        
+        -- Quando finisce
+        sound.Ended:Connect(function()
+            Stato.InRiproduzione = false
+            NomeCanzone.Text = "⏸️ " .. canzone.Nome .. " (finita)"
+            ArtistaLabel.Text = "Clicca per riascoltare"
+        end)
+    end)
+end
+
+-- Bottoni controllo
+local Controlli = Instance.new("Frame")
+Controlli.Size = UDim2.new(0.9, 0, 0, 70)
+Controlli.Position = UDim2.new(0.05, 0, 0, 440)
+Controlli.BackgroundTransparency = 1
+Controlli.Parent = Main
+
+-- Stop
+local StopBtn = Instance.new("TextButton")
+StopBtn.Size = UDim2.new(0, 70, 0, 70)
+StopBtn.Position = UDim2.new(0.5, -35, 0, 0)
+StopBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+StopBtn.Text = "⏹️ STOP"
+StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopBtn.TextSize = 18
+StopBtn.Font = Enum.Font.GothamBold
+StopBtn.Parent = Controlli
+
+Instance.new("UICorner", StopBtn).CornerRadius = UDim.new(1, 0)
+
+StopBtn.MouseButton1Click:Connect(function()
+    if Stato.Sound3D then
+        Stato.Sound3D:Stop()
+    end
+    if Stato.SpeakerPart then
+        Stato.SpeakerPart:Destroy()
+        Stato.SpeakerPart = nil
+    end
+    Stato.InRiproduzione = false
+    Stato.CanzoneCorrente = nil
+    
+    NomeCanzone.Text = "⏸️ Seleziona una canzone"
+    ArtistaLabel.Text = "Range: " .. Stato.Range .. " studi"
+    
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "⏹️ STOP",
+        Text = "Radio fermata",
+        Duration = 2
+    })
+end)
+
+-- Range slider
+local RangeFrame = Instance.new("Frame")
+RangeFrame.Size = UDim2.new(0.9, 0, 0, 50)
+RangeFrame.Position = UDim2.new(0.05, 0, 0, 520)
+RangeFrame.BackgroundTransparency = 1
+RangeFrame.Parent = Main
+
+local RangeText = Instance.new("TextLabel")
+RangeText.Size = UDim2.new(0.3, 0, 1, 0)
+RangeText.BackgroundTransparency = 1
+RangeText.Text = "📡 Range"
+RangeText.TextColor3 = Color3.fromRGB(255, 255, 255)
+RangeText.TextSize = 14
+RangeText.Font = Enum.Font.GothamBold
+RangeText.Parent = RangeFrame
+
+local RangeTrack = Instance.new("Frame")
+RangeTrack.Size = UDim2.new(0.65, 0, 0, 8)
+RangeTrack.Position = UDim2.new(0.32, 0, 0.5, -4)
+RangeTrack.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+RangeTrack.BorderSizePixel = 0
+RangeTrack.Parent = RangeFrame
+
+Instance.new("UICorner", RangeTrack).CornerRadius = UDim.new(1, 0)
+
+local RangeFill = Instance.new("Frame")
+RangeFill.Size = UDim2.new(0.5, 0, 1, 0)
+RangeFill.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+RangeFill.BorderSizePixel = 0
+RangeFill.Parent = RangeTrack
+
+Instance.new("UICorner", RangeFill).CornerRadius = UDim.new(1, 0)
+
+-- Range interaction
+local dragging = false
+local function updateRange(input)
+    local pos = math.clamp((input.Position.X - RangeTrack.AbsolutePosition.X) / RangeTrack.AbsoluteSize.X, 0.1, 1)
+    RangeFill.Size = UDim2.new(pos, 0, 1, 0)
+    Stato.Range = math.floor(pos * 200)
+    ArtistaLabel.Text = "Range: " .. Stato.Range .. " studi"
+    if Stato.Sound3D then
+        Stato.Sound3D.RollOffMaxDistance = Stato.Range
+    end
+end
+
+RangeTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        updateRange(input)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        updateRange(input)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- Hotkey P per nascondere
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.P then
+        Main.Visible = not Main.Visible
+    end
+end)
+
+-- Drag
+local isDragging, dragStart, startPos
+Titolo.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDragging = false
+    end
+end)
+
+-- Welcome
+game.StarterGui:SetCore("SendNotification", {
+    Title = "🇮🇹 Il Negro di Fiducia v2.1",
+    Text = "🎵 2 Canzoni caricate:\n1. Dam Dam Di Di Di Di\n2. Renai Circulation\n\n🔊 Audio 3D attivo!\nPremi P per nascondere",
+    Duration = 5
+})
+
+print("✅ Radio 3D caricata - 2 canzoni pronte!")
