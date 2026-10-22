@@ -1,38 +1,64 @@
 --[[
-    CLICK GHOST RECORDER per Xeno Executor
-    Registra click del mouse sinistro e li riproduce senza spostare il cursore.
-    Perfetto per comprare oggetti quando tornano in stock (uova, ecc.).
-    
-    ISTRUZIONI:
-    1. Incolla questo script nell'editor di Xeno.
-    2. Esegui.
-    3. Usa la GUI per registrare i click e riprodurli in loop.
+    CLICK GHOST RECORDER + GLOBAL SOUND BROADCAST
+    FIXED VERSION FOR Xeno Executor / Roblox
+
+    IMPORTANTE:
+    - Il click recorder funziona come LocalScript.
+    - Per far sentire il suono a tutti i giocatori, serve un RemoteEvent + un Script server.
+    - Incolla la parte LOCAL nel tuo LocalScript e la parte SERVER in un Script dentro ServerScriptService.
 ]]
 
 -- ============================================================
--- SERVIZI
+-- LOCAL SCRIPT (StarterPlayerScripts)
 -- ============================================================
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- ============================================================
--- STATO
--- ============================================================
-local clicks = {}          -- tabella dei click registrati {x, y}
+local soundFolder = ReplicatedStorage:FindFirstChild("GlobalSound")
+if not soundFolder then
+    soundFolder = Instance.new("Folder")
+    soundFolder.Name = "GlobalSound"
+    soundFolder.Parent = ReplicatedStorage
+end
+
+local playSoundEvent = soundFolder:FindFirstChild("PlaySound")
+if not playSoundEvent then
+    playSoundEvent = Instance.new("RemoteEvent")
+    playSoundEvent.Name = "PlaySound"
+    playSoundEvent.Parent = soundFolder
+end
+
+local clicks = {}
 local isRecording = false
 local isPlaying = false
 local isLooping = false
 local recordConnection = nil
 
--- ============================================================
--- GUI
--- ============================================================
+local DEFAULT_SOUND_ID = "rbxassetid://911309111"
+
+local function playGlobalSound(soundId, volume, pitch)
+    if typeof(soundId) ~= "string" or soundId == "" then
+        soundId = DEFAULT_SOUND_ID
+    end
+    if typeof(volume) ~= "number" then
+        volume = 0.6
+    end
+    if typeof(pitch) ~= "number" then
+        pitch = 1
+    end
+
+    playSoundEvent:FireServer(soundId, math.clamp(volume, 0, 10), math.clamp(pitch, 0.5, 2))
+end
+
 local oldGui = playerGui:FindFirstChild("ClickGhostRecorder")
-if oldGui then oldGui:Destroy() end
+if oldGui then
+    oldGui:Destroy()
+end
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ClickGhostRecorder"
@@ -54,7 +80,6 @@ local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 12)
 mainCorner.Parent = main
 
--- Header
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, 50)
 header.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
@@ -76,7 +101,6 @@ title.Font = Enum.Font.GothamBold
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = header
 
--- Status label
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Size = UDim2.new(1, -20, 0, 24)
 statusLabel.Position = UDim2.new(0, 10, 0, 58)
@@ -88,7 +112,6 @@ statusLabel.Font = Enum.Font.Gotham
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.Parent = main
 
--- Pulsanti
 local function makeButton(text, color, y)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.44, 0, 0, 40)
@@ -119,7 +142,6 @@ loopBtn.Position = UDim2.new(0.52, 0, 0, 145)
 local clearBtn = makeButton("🗑 Cancella", Color3.fromRGB(120, 70, 70), 195)
 clearBtn.Size = UDim2.new(0.92, 0, 0, 35)
 
--- Lista click
 local listFrame = Instance.new("ScrollingFrame")
 listFrame.Size = UDim2.new(0.92, 0, 0, 200)
 listFrame.Position = UDim2.new(0.04, 0, 0, 245)
@@ -145,17 +167,12 @@ listPadding.PaddingRight = UDim.new(0, 8)
 listPadding.PaddingBottom = UDim.new(0, 6)
 listPadding.Parent = listFrame
 
--- ============================================================
--- FUNZIONI
--- ============================================================
-
 local function updateStatus(text, color)
     statusLabel.Text = text
     statusLabel.TextColor3 = color or Color3.fromRGB(180, 180, 190)
 end
 
 local function refreshList()
-    -- Rimuove tutte le voci precedenti (tranne layout e padding)
     for _, child in ipairs(listFrame:GetChildren()) do
         if child:IsA("TextLabel") then
             child:Destroy()
@@ -202,6 +219,7 @@ local function startRecording()
             table.insert(clicks, { x = math.floor(pos.X), y = math.floor(pos.Y) })
             refreshList()
             updateStatus(string.format("🔴 Registrato click #%d → (%d, %d)", #clicks, pos.X, pos.Y), Color3.fromRGB(255, 120, 120))
+            playGlobalSound("rbxassetid://911309111", 0.35, 1.1)
         end
     end)
 end
@@ -231,17 +249,12 @@ local function playClicks()
     for i, click in ipairs(clicks) do
         if not isPlaying then break end
 
-        -- Ghost click: invia l'evento del mouse senza spostare il cursore
-        VirtualInputManager:SendMouseButtonEvent(
-            click.x, click.y, 0, true, game, 1
-        )
+        VirtualInputManager:SendMouseButtonEvent(click.x, click.y, 0, true, game, 1)
         task.wait(0.05)
-        VirtualInputManager:SendMouseButtonEvent(
-            click.x, click.y, 0, false, game, 1
-        )
+        VirtualInputManager:SendMouseButtonEvent(click.x, click.y, 0, false, game, 1)
 
         updateStatus(string.format("▶ Click %d/%d → (%d, %d)", i, #clicks, click.x, click.y), Color3.fromRGB(100, 200, 255))
-        task.wait(0.15) -- pausa tra un click e l'altro (regolabile)
+        task.wait(0.15)
     end
 
     isPlaying = false
@@ -260,7 +273,7 @@ local function startLoop()
             if #clicks > 0 and not isPlaying then
                 playClicks()
             end
-            task.wait(0.5) -- pausa tra un ciclo e l'altro (regolabile)
+            task.wait(0.5)
         end
     end)
 end
@@ -271,10 +284,6 @@ local function stopLoop()
     loopBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
     updateStatus("Loop fermato.", Color3.fromRGB(180, 180, 190))
 end
-
--- ============================================================
--- COLLEGAMENTI PULSANTI
--- ============================================================
 
 recordBtn.MouseButton1Click:Connect(function()
     if isRecording then
@@ -316,10 +325,62 @@ clearBtn.MouseButton1Click:Connect(function()
     updateStatus("Lista click cancellata.", Color3.fromRGB(180, 180, 190))
 end)
 
--- ============================================================
--- INIZIALIZZAZIONE
--- ============================================================
 refreshList()
 updateStatus("Pronto. Premi 'Registra' e clicca con il tasto sinistro.", Color3.fromRGB(180, 180, 190))
-
 print("[Click Ghost Recorder] Caricato con successo.")
+
+-- ============================================================
+-- SERVER SCRIPT (Script in ServerScriptService)
+-- ============================================================
+-- Incolla questo script in un Script dentro ServerScriptService.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local soundFolder = ReplicatedStorage:FindFirstChild("GlobalSound")
+if not soundFolder then
+    soundFolder = Instance.new("Folder")
+    soundFolder.Name = "GlobalSound"
+    soundFolder.Parent = ReplicatedStorage
+end
+
+local playSoundEvent = soundFolder:FindFirstChild("PlaySound")
+if not playSoundEvent then
+    playSoundEvent = Instance.new("RemoteEvent")
+    playSoundEvent.Name = "PlaySound"
+    playSoundEvent.Parent = soundFolder
+end
+
+local function playSoundForEveryone(soundId, volume, pitch)
+    if typeof(soundId) ~= "string" or soundId == "" then
+        return
+    end
+
+    local sound = Instance.new("Sound")
+    sound.SoundId = soundId
+    sound.Volume = math.clamp(volume or 1, 0, 10)
+    sound.Pitch = math.clamp(pitch or 1, 0.5, 2)
+    sound.Parent = game:GetService("SoundService")
+    sound:Play()
+
+    task.delay(math.max(sound.TimeLength, 1.5) + 0.2, function()
+        if sound and sound.Parent then
+            sound:Destroy()
+        end
+    end)
+end
+
+playSoundEvent.OnServerEvent:Connect(function(player, soundId, volume, pitch)
+    if not player then
+        return
+    end
+
+    playSoundForEveryone(soundId, volume, pitch)
+end)
+
+print("[Global Sound Server] Pronto. RemoteEvent attivo.")
+
+--[[
+    NOTE:
+    - Il suono globale deve partire dal server.
+    - Il LocalScript chiama FireServer, e il server lo riproduce per tutti.
+    - Se vuoi cambiare il suono, modifica la stringa "soundId" o usa un tuo asset id.
+]]
